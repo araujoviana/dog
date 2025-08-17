@@ -7,6 +7,9 @@ requires-python = "==3.12.*"
 dependencies = [
     "faster-whisper>=1.2.0",
     "ffmpeg-python>=0.2.0",
+    "groq>=0.31.0",
     "joblib>=1.5.1",
     "openai-whisper>=20250625",
+    "torch>=2.8.0",
+    "transformers>=4.55.2",
 ]

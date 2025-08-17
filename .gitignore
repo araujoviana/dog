@@ -12,6 +12,8 @@ uv.lock
 
 # Personal data
 input-data/*
-!input-data/config.toml.example
+config.toml
 log/*
 processed-audio/*
+cleaned-text/*
+transcripted-audio/*

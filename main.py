@@ -1,11 +1,15 @@
 import ffmpeg
-from faster_whisper import WhisperModel
+import re
+import whisper
 import logging
 from joblib import Parallel, delayed
 from pathlib import Path
 from datetime import datetime
 import tomllib
-from logging import basicConfig, info, debug, warning, error, critical, INFO
+from logging import INFO, info, warning, error, critical
+from groq import Groq
+import time
+
 
 # REVIEW Learn audio processing
 def process_audio(input_audio, output_audio):
@@ -17,34 +21,115 @@ def process_audio(input_audio, output_audio):
         output_audio (str): Path to output .ogg file
     """
 
+    # Skips existing files
     if output_audio.exists():
         warning(f"{output_audio} already exists, skipping processing")
         return
-
 
     info(f"Processing audio file: {input_audio}")
 
     try:
         (
             ffmpeg.input(str(input_audio))
-                .filter("volume", "6dB")
-                .filter("highpass", f=80)
-                .filter("loudnorm")
-                .output(str(output_audio), acodec="libopus")
-                .run(overwrite_output=True)
+                .filter("volume", "6dB")                # Apply volume boost
+                .filter("highpass", f=80)               # Apply high-pass filter (removes low rumble)
+                .filter("loudnorm")                     # Apply loudness normalization
+                .output(str(output_audio), acodec="libopus")  # Encode output as Opus
+                .run(overwrite_output=True)             # Execute and overwrite if file exists
         )
     except ffmpeg.Error as e:
         error(f"Error processing {input_audio}: {e.stderr.decode('utf8')}")
 
 
+def clean_with_groq(text_chunk, client, llm_model, toml_config):
+    """
+    Cleans a text chunk using the Groq API.
+    """
+    full_prompt = toml_config["llm"]["prompt"].format(text_chunk=text_chunk)
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": full_prompt,
+                }
+            ],
+            model       = llm_model,
+            temperature = 0.2, # Lower temperature (more) deterministic cleaning
+            top_p       = 0.9, # Larger set of tokens picked, which makes it more creative in interpreting text
+        )
+        cleaned = chat_completion.choices[0].message.content.strip()
+        return cleaned if cleaned else text_chunk
+    except Exception as e:
+        error(f"Groq API error: {e}")
+        return text_chunk  # Fallback to original text on API error
+
+
+def process_long_transcription(file_path, output_path, client, llm_model, chunk_size, toml_config):
+    """
+    Sends text transcriptions to Groq API in chunks.
+    """
+
+    with file_path.open("r", encoding="utf-8") as f:
+        text = f.read()
+
+    info(f"Processing {len(text)} characters from {file_path.name}")
+
+    # Split by sentences to preserve context
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        info(f"Processing sentence: {sentence}")
+
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+
+        if len(current_chunk) + len(sentence) + 1 < chunk_size:
+            current_chunk += sentence + " "
+        else:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            current_chunk = sentence + " "
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    info(f"Split into {len(chunks)} chunks")
+
+    with output_path.open("w", encoding="utf-8") as outfile:
+        # Write metadata header
+        outfile.write(f"LIMPO: true | ARQUIVO_ORIGEM: {file_path.name}\n\n")
+
+        for i, chunk in enumerate(chunks):
+            info(f"Processing chunk {i+1}/{len(chunks)}")
+
+            try:
+                cleaned = clean_with_groq(chunk, client, llm_model, toml_config)
+                outfile.write(cleaned + " ")
+                outfile.flush()  # Write immediately
+
+            except Exception as e:
+                critical(f"Error processing chunk {i+1}: {e}")
+                outfile.write(chunk + " ")  # Fallback to original
+
+            # API cooldown to avoid 429 response
+            info(f"Waiting {toml_config["llm"]["api_call_cooldown"]} seconds for the API...")
+            time.sleep(toml_config["llm"]["api_call_cooldown"])
+
+    info(f"Finished cleaning {file_path.name}")
+
+
 def main():
-    # Load config
-    config_path = Path("input-data/config.toml")
+    # Load local config
+    config_path = Path("config.toml")
     with config_path.open("rb") as f:
         config = tomllib.load(f)
 
     # Paths from config
-    audio_folder = Path(config["paths"]["audio-folder"])
+    audio_folder = Path(config["paths"]["audio_folder"])
     output_folder = Path(config["paths"]["output_folder"])
     log_folder = Path(config["paths"]["log_folder"])
 
@@ -55,13 +140,19 @@ def main():
     # Setup logging
     exec_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_filename = log_folder / f"rag_{exec_timestamp}.log"
-    basicConfig(
-        filename=str(log_filename),
-        filemode='w',
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        level=INFO
-    )
-    logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
+    # File handler
+    file_handler = logging.FileHandler(log_filename, mode='w')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+    # Root logger
+    logger = logging.getLogger()
+    logger.setLevel(INFO)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
     info("Starting dog 🐕")
 
@@ -83,32 +174,66 @@ def main():
     transcription_folder = Path(config["paths"].get("transcription_folder", "transcriptions"))
     transcription_folder.mkdir(parents=True, exist_ok=True)
 
-
     # REVIEW tweak model for performance
-
     def transcribe_file(f, transcription_folder):
+        output_file = transcription_folder / f"{f.stem}.txt"
+        if output_file.exists():
+            info(f"Transcription already exists for {f}, skipping")
+            return
+
         info(f"Transcribing file: {f}")
 
-        model = WhisperModel(config["whisper"]["model"], device="cpu", compute_type="int8")
-        segments, winfo = model.transcribe(str(f), beam_size=5, language="pt", vad_filter=True)
+        # Load model on CPU
+        model = whisper.load_model("base", device="cpu")
+        result = model.transcribe(str(f), language="pt")
 
-        info(f"Detected language '{winfo.language}' with probability {winfo.language_probability}")
-
-        transcription = "".join([segment.text for segment in segments])
-
-        info(f"Done transcribing file: {f}")
-
-        output_file = transcription_folder / f"{f.stem}.txt"
         with output_file.open("w", encoding="utf-8") as out:
-            out.write(transcription)
+            out.write(result["text"])
 
     processed_files = list(output_folder.glob("*.*"))
 
+    # Transcribe files sequentially
     for f in processed_files:
         transcribe_file(f, transcription_folder)
 
+    # Groq client setup
+    info("Setting up Groq client")
+    try:
+        groq_api_key = config["auth"]["api_key"]
+        llm_model = config["llm"]["model"]
+        if not groq_api_key:
+            raise ValueError("Groq API key is not set in config.toml")
+    except KeyError as e:
+        critical(f"Missing configuration in config.toml: {e}")
+        return
 
-    info("Done audio processing")
+    client = Groq(api_key=groq_api_key)
+    info(f"Groq client configured to use model: {llm_model}")
+
+
+    # Ensure cleaned folder exists
+    cleaned_folder = Path(config["paths"].get("cleaned_folder", "cleaned_transcriptions"))
+    cleaned_folder.mkdir(parents=True, exist_ok=True)
+
+    # Process all transcription files
+    transcription_files = list(transcription_folder.glob("*.txt"))
+    info(f"Found {len(transcription_files)} transcription files to clean")
+
+    for f in transcription_files:
+        output_file = cleaned_folder / f"{f.stem}-cleaned.txt"
+
+        if output_file.exists():
+            info(f"Cleaned transcription already exists for {f}, skipping")
+            continue
+
+        try:
+            # Pass the groq client and model to the processing function
+            process_long_transcription(f, output_file, client, llm_model, 8000, config)
+        except Exception as e:
+            error(f"Failed to process {f}: {e}")
+            continue
+
+    info("Done text cleaning")
 
 if __name__ == "__main__":
     main()

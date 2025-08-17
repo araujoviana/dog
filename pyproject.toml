@@ -1,0 +1,9 @@
+[project]
+name = "dog"
+version = "0.1.0"
+description = "Local RAG"
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "ffmpeg-python>=0.2.0",
+]

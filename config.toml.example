@@ -1,0 +1,34 @@
+[auth]
+api_key = ""  # Groq AI API key for accessing the LLM
+
+[paths]
+audio_folder = "input-data"           # Folder containing raw audio files
+text_folder = "input-data"            # Folder containing input text files
+output_folder = "processed-audio"     # Folder to store processed audio
+log_folder = "log"                     # Folder to store logs
+transcription_folder = "transcripted-audio"  # Folder to store raw transcriptions
+cleaned_folder = "cleaned-text"       # Folder to store cleaned / formatted text
+
+[llm]
+model = "meta-llama/llama-4-maverick-17b-128e-instruct"  # LLM model used for transcription cleaning and formatting
+api_call_cooldown = 5  # Seconds to wait between LLM API calls
+
+audio_prompt = """
+INSTRUÇÃO:
+<...>
+
+TEXTO DE ENTRADA:
+{text_chunk}
+
+TEXTO LIMPO EM MARKDOWN:
+"""  # Prompt used when sending audio transcription chunks to the LLM for cleaning
+
+text_prompt = """
+INSTRUÇÃO:
+<...>
+
+TEXTO DE ENTRADA:
+{text_chunk}
+
+TEXTO LIMPO EM MARKDOWN:
+"""  # Prompt used when sending plain text chunks to the LLM for cleaning

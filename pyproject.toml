@@ -5,6 +5,7 @@ description = "Local RAG"
 readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
+    "faster-whisper>=1.2.0",
     "ffmpeg-python>=0.2.0",
     "joblib>=1.5.1",
     "openai-whisper>=20250625",

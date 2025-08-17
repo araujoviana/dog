@@ -41,11 +41,11 @@ def process_audio(input_audio, output_audio):
         error(f"Error processing {input_audio}: {e.stderr.decode('utf8')}")
 
 
-def clean_with_groq(text_chunk, client, llm_model, toml_config):
+def clean_with_groq(text_chunk, client, llm_model, prompt):
     """
     Cleans a text chunk using the Groq API.
     """
-    full_prompt = toml_config["llm"]["prompt"].format(text_chunk=text_chunk)
+    full_prompt = prompt.format(text_chunk=text_chunk)
     try:
         chat_completion = client.chat.completions.create(
             messages=[
@@ -65,9 +65,9 @@ def clean_with_groq(text_chunk, client, llm_model, toml_config):
         return text_chunk  # Fallback to original text on API error
 
 
-def process_long_transcription(file_path, output_path, client, llm_model, chunk_size, toml_config):
+def process_long_text(file_path, output_path, client, llm_model, chunk_size, prompt, api_call_cooldown):
     """
-    Sends text transcriptions to Groq API in chunks.
+    Sends text to Groq API in chunks.
     """
 
     with file_path.open("r", encoding="utf-8") as f:
@@ -107,7 +107,7 @@ def process_long_transcription(file_path, output_path, client, llm_model, chunk_
             info(f"Processing chunk {i+1}/{len(chunks)}")
 
             try:
-                cleaned = clean_with_groq(chunk, client, llm_model, toml_config)
+                cleaned = clean_with_groq(chunk, client, llm_model, prompt)
                 outfile.write(cleaned + " ")
                 outfile.flush()  # Write immediately
 
@@ -116,8 +116,8 @@ def process_long_transcription(file_path, output_path, client, llm_model, chunk_
                 outfile.write(chunk + " ")  # Fallback to original
 
             # API cooldown to avoid 429 response
-            info(f"Waiting {toml_config["llm"]["api_call_cooldown"]} seconds for the API...")
-            time.sleep(toml_config["llm"]["api_call_cooldown"])
+            info(f"Waiting {api_call_cooldown} seconds for the API...")
+            time.sleep(api_call_cooldown)
 
     info(f"Finished cleaning {file_path.name}")
 
@@ -130,6 +130,7 @@ def main():
 
     # Paths from config
     audio_folder = Path(config["paths"]["audio_folder"])
+    text_folder = Path(config["paths"]["text_folder"])
     output_folder = Path(config["paths"]["output_folder"])
     log_folder = Path(config["paths"]["log_folder"])
 
@@ -160,15 +161,19 @@ def main():
     audio_extensions = ["*.mp3", "*.wav", "*.flac", "*.aac", "*.ogg", "*.m4a"]
     audio_files = [f for ext in audio_extensions for f in audio_folder.glob(ext)]
 
+    # Collect text files
+    text_extensions = ["*.txt", "*.org", "*.md"]
+    text_files = [f for ext in text_extensions for f in text_folder.glob(ext)]
+
     # Processing audio function
     def audio_processing_job(audio_file):
         output_file = output_folder / f"{audio_file.stem}-processed{audio_file.suffix}"
         process_audio(audio_file, output_file)
 
     # Parallel audio processing
-    Parallel(n_jobs=-1)(delayed(audio_processing_job)(f) for f in audio_files)
-
-    info("Done audio processing")
+    if audio_files:
+        Parallel(n_jobs=-1)(delayed(audio_processing_job)(f) for f in audio_files)
+        info("Done audio processing")
 
     # Folder for transcriptions
     transcription_folder = Path(config["paths"].get("transcription_folder", "transcriptions"))
@@ -193,14 +198,19 @@ def main():
     processed_files = list(output_folder.glob("*.*"))
 
     # Transcribe files sequentially
-    for f in processed_files:
-        transcribe_file(f, transcription_folder)
+    if processed_files:
+        for f in processed_files:
+            transcribe_file(f, transcription_folder)
+        info("Done audio transcription")
 
     # Groq client setup
     info("Setting up Groq client")
     try:
         groq_api_key = config["auth"]["api_key"]
         llm_model = config["llm"]["model"]
+        audio_prompt = config["llm"]["audio_prompt"]
+        text_prompt = config["llm"]["text_prompt"]
+        api_call_cooldown = config["llm"]["api_call_cooldown"]
         if not groq_api_key:
             raise ValueError("Groq API key is not set in config.toml")
     except KeyError as e:
@@ -210,7 +220,6 @@ def main():
     client = Groq(api_key=groq_api_key)
     info(f"Groq client configured to use model: {llm_model}")
 
-
     # Ensure cleaned folder exists
     cleaned_folder = Path(config["paths"].get("cleaned_folder", "cleaned_transcriptions"))
     cleaned_folder.mkdir(parents=True, exist_ok=True)
@@ -219,21 +228,38 @@ def main():
     transcription_files = list(transcription_folder.glob("*.txt"))
     info(f"Found {len(transcription_files)} transcription files to clean")
 
-    for f in transcription_files:
-        output_file = cleaned_folder / f"{f.stem}-cleaned.txt"
+    if transcription_files:
+        for f in transcription_files:
+            output_file = cleaned_folder / f"{f.stem}-cleaned.txt"
 
-        if output_file.exists():
-            info(f"Cleaned transcription already exists for {f}, skipping")
-            continue
+            if output_file.exists():
+                info(f"Cleaned transcription already exists for {f}, skipping")
+                continue
 
-        try:
-            # Pass the groq client and model to the processing function
-            process_long_transcription(f, output_file, client, llm_model, 8000, config)
-        except Exception as e:
-            error(f"Failed to process {f}: {e}")
-            continue
+            try:
+                process_long_text(f, output_file, client, llm_model, 8000, audio_prompt, api_call_cooldown)
+            except Exception as e:
+                error(f"Failed to process {f}: {e}")
+                continue
+        info("Done transcription cleaning")
 
-    info("Done text cleaning")
+    # Process all text files
+    info(f"Found {len(text_files)} text files to clean")
+    if text_files:
+        for f in text_files:
+            output_file = cleaned_folder / f"{f.stem}-cleaned.txt"
+
+            if output_file.exists():
+                info(f"Cleaned text file already exists for {f}, skipping")
+                continue
+
+            try:
+                process_long_text(f, output_file, client, llm_model, 8000, text_prompt, api_call_cooldown)
+            except Exception as e:
+                error(f"Failed to process {f}: {e}")
+                continue
+        info("Done text cleaning")
+
 
 if __name__ == "__main__":
     main()

@@ -11,5 +11,7 @@ wheels/
 uv.lock
 
 # Personal data
-data/*
-!data/config.toml.example
+input-data/*
+!input-data/config.toml.example
+log/*
+processed-audio/*

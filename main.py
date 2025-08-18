@@ -1,4 +1,8 @@
+import nltk
+from nltk.tokenize import sent_tokenize
 import ffmpeg
+import faiss
+import numpy as np
 import re
 import whisper
 import logging
@@ -9,6 +13,9 @@ import tomllib
 from logging import INFO, info, warning, error, critical
 from groq import Groq
 import time
+from sentence_transformers import SentenceTransformer, CrossEncoder
+
+# TODO Remove unused imports
 
 
 # REVIEW Learn audio processing
@@ -31,11 +38,11 @@ def process_audio(input_audio, output_audio):
     try:
         (
             ffmpeg.input(str(input_audio))
-                .filter("volume", "6dB")                # Apply volume boost
-                .filter("highpass", f=80)               # Apply high-pass filter (removes low rumble)
-                .filter("loudnorm")                     # Apply loudness normalization
-                .output(str(output_audio), acodec="libopus")  # Encode output as Opus
-                .run(overwrite_output=True)             # Execute and overwrite if file exists
+            .filter("volume", "6dB")  # Apply volume boost
+            .filter("highpass", f=80)  # Apply high-pass filter (removes low rumble)
+            .filter("loudnorm")  # Apply loudness normalization
+            .output(str(output_audio), acodec="libopus")  # Encode output as Opus
+            .run(overwrite_output=True)  # Execute and overwrite if file exists
         )
     except ffmpeg.Error as e:
         error(f"Error processing {input_audio}: {e.stderr.decode('utf8')}")
@@ -54,9 +61,9 @@ def clean_with_groq(text_chunk, client, llm_model, prompt):
                     "content": full_prompt,
                 }
             ],
-            model       = llm_model,
-            temperature = 0.2, # Lower temperature (more) deterministic cleaning
-            top_p       = 0.9, # Larger set of tokens picked, which makes it more creative in interpreting text
+            model=llm_model,
+            temperature=0.2,  # Lower temperature (more) deterministic cleaning
+            top_p=0.9,  # Larger set of tokens picked, which makes it more creative in interpreting text
         )
         cleaned = chat_completion.choices[0].message.content.strip()
         return cleaned if cleaned else text_chunk
@@ -65,7 +72,9 @@ def clean_with_groq(text_chunk, client, llm_model, prompt):
         return text_chunk  # Fallback to original text on API error
 
 
-def process_long_text(file_path, output_path, client, llm_model, chunk_size, prompt, api_call_cooldown):
+def process_long_text(
+    file_path, output_path, client, llm_model, chunk_size, prompt, api_call_cooldown
+):
     """
     Sends text to Groq API in chunks.
     """
@@ -76,7 +85,7 @@ def process_long_text(file_path, output_path, client, llm_model, chunk_size, pro
     info(f"Processing {len(text)} characters from {file_path.name}")
 
     # Split by sentences to preserve context
-    sentences = re.split(r'(?<=[.!?])\s+', text)
+    sentences = re.split(r"(?<=[.!?])\s+", text)
     chunks = []
     current_chunk = ""
 
@@ -104,7 +113,7 @@ def process_long_text(file_path, output_path, client, llm_model, chunk_size, pro
         outfile.write(f"LIMPO: true | ARQUIVO_ORIGEM: {file_path.name}\n\n")
 
         for i, chunk in enumerate(chunks):
-            info(f"Processing chunk {i+1}/{len(chunks)}")
+            info(f"Processing chunk {i + 1}/{len(chunks)}")
 
             try:
                 cleaned = clean_with_groq(chunk, client, llm_model, prompt)
@@ -112,7 +121,7 @@ def process_long_text(file_path, output_path, client, llm_model, chunk_size, pro
                 outfile.flush()  # Write immediately
 
             except Exception as e:
-                critical(f"Error processing chunk {i+1}: {e}")
+                critical(f"Error processing chunk {i + 1}: {e}")
                 outfile.write(chunk + " ")  # Fallback to original
 
             # API cooldown to avoid 429 response
@@ -142,12 +151,16 @@ def main():
     exec_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_filename = log_folder / f"rag_{exec_timestamp}.log"
     # File handler
-    file_handler = logging.FileHandler(log_filename, mode='w')
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    file_handler = logging.FileHandler(log_filename, mode="w")
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
 
     # Console handler
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    console_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
 
     # Root logger
     logger = logging.getLogger()
@@ -176,7 +189,9 @@ def main():
         info("Done audio processing")
 
     # Folder for transcriptions
-    transcription_folder = Path(config["paths"].get("transcription_folder", "transcriptions"))
+    transcription_folder = Path(
+        config["paths"].get("transcription_folder", "transcriptions")
+    )
     transcription_folder.mkdir(parents=True, exist_ok=True)
 
     # REVIEW tweak model for performance
@@ -221,7 +236,9 @@ def main():
     info(f"Groq client configured to use model: {llm_model}")
 
     # Ensure cleaned folder exists
-    cleaned_folder = Path(config["paths"].get("cleaned_folder", "cleaned_transcriptions"))
+    cleaned_folder = Path(
+        config["paths"].get("cleaned_folder", "cleaned_transcriptions")
+    )
     cleaned_folder.mkdir(parents=True, exist_ok=True)
 
     # Process all transcription files
@@ -237,7 +254,15 @@ def main():
                 continue
 
             try:
-                process_long_text(f, output_file, client, llm_model, 8000, audio_prompt, api_call_cooldown)
+                process_long_text(
+                    f,
+                    output_file,
+                    client,
+                    llm_model,
+                    8000,
+                    audio_prompt,
+                    api_call_cooldown,
+                )
             except Exception as e:
                 error(f"Failed to process {f}: {e}")
                 continue
@@ -254,11 +279,142 @@ def main():
                 continue
 
             try:
-                process_long_text(f, output_file, client, llm_model, 8000, text_prompt, api_call_cooldown)
+                process_long_text(
+                    f,
+                    output_file,
+                    client,
+                    llm_model,
+                    8000,
+                    text_prompt,
+                    api_call_cooldown,
+                )
             except Exception as e:
                 error(f"Failed to process {f}: {e}")
                 continue
         info("Done text cleaning")
+
+    # --- RAG stuff starts here ---
+    # REVIEW there are a lot of parameters and techniques to implement for better search
+    # but for now this is good enough
+
+    info("Computing file embeddings")
+
+    # Download required NLTK data or use fallback
+    info("Searching for punkt (NLTK)")
+    nltk.data.find(config["embedding"]["tokenizer"])
+
+    embedding_model = SentenceTransformer(config["embedding"]["embedding_model"])
+    cross_encoder = CrossEncoder(config["embedding"]["cross_encoder"])
+
+    # Semantic chunking preserving sentence boundaries
+    def semantic_chunk(text, max_size=config["embedding"]["chunk_size"]):
+        info(f"Semantic chunking text with size {len(text)}")
+
+        sentences = sent_tokenize(text)
+        chunks = []
+        current_chunk = []
+        current_length = 0
+
+        for sent in sentences:
+            sent_words = len(sent.split())
+            if current_length + sent_words > max_size and current_chunk:
+                chunks.append(" ".join(current_chunk))
+                current_chunk = [sent]
+                current_length = sent_words
+            else:
+                current_chunk.append(sent)
+                current_length += sent_words
+
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+
+        return chunks
+
+    # Process documents with metadata preservation
+    # REVIEW or add metadata in the cleaning process itself 🤡
+    documents = []
+    metadata = []
+
+    for f in Path(cleaned_folder).glob("*.txt"):
+        text = open(f, encoding="utf-8").read()
+        chunks = semantic_chunk(text)
+
+        for i, chunk in enumerate(chunks):
+            documents.append(chunk)
+            # REVIEW More useful metadata can be added
+            metadata.append(
+                {
+                    "source": f.name,
+                    "chunk_id": i,
+                    "total_chunks": len(chunks),
+                    "char_count": len(chunk),
+                }
+            )
+
+    # Normalize embeddings for cosine similarity, better than L2 probably
+    embeddings = embedding_model.encode(documents, show_progress_bar=True)
+    embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+    # Use inner product index for normalized embeddings
+    dimension = embeddings.shape[1]
+    index = faiss.IndexFlatIP(dimension)
+    index.add(np.array(embeddings))
+
+    # Query processing
+    query = "O que é um processo dos sistemas operacionais?"
+    query_vec = embedding_model.encode([query])
+    query_vec = query_vec / np.linalg.norm(query_vec, axis=1, keepdims=True)
+
+    # Initial retrieval with more candidates for reranking
+    initial_k = config["embedding"]["retrieved_chunks"]
+    distances, indices = index.search(np.array(query_vec), initial_k)
+
+    # Rerank using cross-encoder
+    candidates = []
+    for idx in indices[0]:
+        candidates.append(
+            {
+                "text": documents[idx],
+                "metadata": metadata[idx],
+                "initial_score": distances[0][list(indices[0]).index(idx)],
+            }
+        )
+
+    # Cross-encoder scoring
+    cross_scores = cross_encoder.predict(
+        [(query, candidate["text"]) for candidate in candidates]
+    )
+
+    # Combine scores and rerank
+    final_k = config["embedding"]["retrieved_chunks"]
+    reranked_results = []
+
+    for candidate, cross_score in zip(candidates, cross_scores):
+        reranked_results.append(
+            {
+                **candidate,
+                "cross_score": cross_score,
+                "combined_score": 0.7 * cross_score + 0.3 * candidate["initial_score"],
+            }
+        )
+
+    # Sort by combined score and take top results
+    reranked_results.sort(key=lambda x: x["combined_score"], reverse=True)
+    top_results = reranked_results[:final_k]
+
+    print("Query:", query)
+    for rank, result in enumerate(top_results):
+        print(f"\nRank {rank + 1}")
+        print(f"Source: {result['metadata']['source']}")
+        print(
+            f"Chunk: {result['metadata']['chunk_id'] + 1}/{result['metadata']['total_chunks']}"
+        )
+        print(f"Combined Score: {result['combined_score']:.4f}")
+        print(f"Cross-encoder Score: {result['cross_score']:.4f}")
+        print(f"Initial Score: {result['initial_score']:.4f}")
+        print("Text:")
+        print(result["text"])
+        print("-" * 80)
 
 
 if __name__ == "__main__":

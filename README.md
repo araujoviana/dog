@@ -1,4 +1,4 @@
-# dog
+# 🐕
 
 `dog` is a local Retrieval-Augmented Generation (RAG) pipeline.
 

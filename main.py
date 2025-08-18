@@ -204,7 +204,7 @@ def main():
         info(f"Transcribing file: {f}")
 
         # Load model on CPU
-        model = whisper.load_model("base", device="cpu")
+        model = whisper.load_model(config["audio"]["model"], device="cpu")
         result = model.transcribe(str(f), language="pt")
 
         with output_file.open("w", encoding="utf-8") as out:
@@ -222,10 +222,10 @@ def main():
     info("Setting up Groq client")
     try:
         groq_api_key = config["auth"]["api_key"]
-        llm_model = config["llm"]["model"]
-        audio_prompt = config["llm"]["audio_prompt"]
-        text_prompt = config["llm"]["text_prompt"]
-        api_call_cooldown = config["llm"]["api_call_cooldown"]
+        llm_model = config["clean_up"]["model"]
+        audio_prompt = config["clean_up"]["audio_prompt"]
+        text_prompt = config["clean_up"]["text_prompt"]
+        api_call_cooldown = config["clean_up"]["api_call_cooldown"]
         if not groq_api_key:
             raise ValueError("Groq API key is not set in config.toml")
     except KeyError as e:
@@ -294,14 +294,18 @@ def main():
         info("Done text cleaning")
 
     # --- RAG stuff starts here ---
+
     # REVIEW there are a lot of parameters and techniques to implement for better search
     # but for now this is good enough
 
     info("Computing file embeddings")
 
-    # Download required NLTK data or use fallback
+    # Find required NLTK data or Download
     info("Searching for punkt (NLTK)")
-    nltk.data.find(config["embedding"]["tokenizer"])
+    try:
+        nltk.data.find(config["embedding"]["tokenizer"])
+    except LookupError:
+        nltk.download(config["embedding"]["tokenizer"])
 
     embedding_model = SentenceTransformer(config["embedding"]["embedding_model"])
     cross_encoder = CrossEncoder(config["embedding"]["cross_encoder"])
@@ -357,11 +361,15 @@ def main():
 
     # Use inner product index for normalized embeddings
     dimension = embeddings.shape[1]
-    index = faiss.IndexFlatIP(dimension)
+    index = faiss.IndexHNSWFlat(
+        dimension, config["embedding"]["graph_neighbours"], faiss.METRIC_INNER_PRODUCT
+    )
+    index.hnsw.efConstruction = config["embedding"]["ef_construction"]
+    index.hnsw.efSearch = config["embedding"]["ef_search"]
     index.add(np.array(embeddings))
 
     # Query processing
-    query = "O que é um processo dos sistemas operacionais?"
+    query = "O que é um processo em um sistema operacional?"
     query_vec = embedding_model.encode([query])
     query_vec = query_vec / np.linalg.norm(query_vec, axis=1, keepdims=True)
 
@@ -370,15 +378,11 @@ def main():
     distances, indices = index.search(np.array(query_vec), initial_k)
 
     # Rerank using cross-encoder
-    candidates = []
-    for idx in indices[0]:
-        candidates.append(
-            {
-                "text": documents[idx],
-                "metadata": metadata[idx],
-                "initial_score": distances[0][list(indices[0]).index(idx)],
-            }
-        )
+    info("Reranking RAG candidates")
+    candidates = [
+        {"text": documents[idx], "metadata": metadata[idx], "initial_score": score}
+        for idx, score in zip(indices[0], distances[0])
+    ]
 
     # Cross-encoder scoring
     cross_scores = cross_encoder.predict(
@@ -415,6 +419,31 @@ def main():
         print("Text:")
         print(result["text"])
         print("-" * 80)
+
+    # --- Retrieval starts here ---
+
+    def build_rag_prompt(query, retrieved_chunks):
+        context = "\n\n".join(retrieved_chunks)
+
+        return config["retrieval"]["prompt"].format(
+            context=retrieved_chunks, query=query
+        )
+
+    top_k_texts = [result["text"] for result in top_results]
+    prompt = build_rag_prompt(query, top_k_texts)
+
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model=config["retrieval"]["model"],
+            temperature=config["retrieval"]["temperature"],
+            top_p=config["retrieval"]["top_p"],
+        )
+        answer = chat_completion.choices[0].message.content.strip()
+        print("\n\n" + answer)
+    except Exception as e:
+        error(f"Groq API error: {e}")
+        return "Erro: não foi possível gerar a resposta."
 
 
 if __name__ == "__main__":

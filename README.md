@@ -44,9 +44,9 @@ This project uses `uv` for package management. You can find installation instruc
 
 ### Usage
 
-1.  **Run the pipeline**:
-    ```bash
-    python main.py
-    ```
-2.  **Ask a question**:
+1.  **Add a question**:
     - Modify the `QUERY` variable in `main.py` to ask your question.
+2.  **Run the pipeline**:
+    ```bash
+    uv run main.py
+    ```

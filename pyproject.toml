@@ -3,7 +3,7 @@ name = "dog"
 version = "0.1.0"
 description = "Local RAG whatever"
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "faiss-cpu>=1.12.0",
     "faster-whisper>=1.2.0",
@@ -12,7 +12,9 @@ dependencies = [
     "joblib>=1.5.1",
     "nltk>=3.9.1",
     "numpy>=2.2.6",
+    "ocrmypdf>=16.10.4",
     "openai-whisper>=20250625",
+    "pymupdf>=1.26.3",
     "sentence-transformers>=5.1.0",
     "torch>=2.8.0",
     "transformers>=4.55.2",

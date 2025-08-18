@@ -2,6 +2,8 @@ import os
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+import fitz
+import ocrmypdf
 import nltk
 from nltk.tokenize import sent_tokenize
 import ffmpeg
@@ -143,7 +145,7 @@ def main():
 
     # Paths from config
     audio_folder = Path(config["paths"]["audio_folder"])
-    text_folder = Path(config["paths"]["text_folder"])
+    docs_folder = Path(config["paths"]["docs_folder"])
     output_folder = Path(config["paths"]["output_folder"])
     log_folder = Path(config["paths"]["log_folder"])
 
@@ -180,7 +182,28 @@ def main():
 
     # Collect text files
     text_extensions = ["*.txt", "*.org", "*.md"]
-    text_files = [f for ext in text_extensions for f in text_folder.glob(ext)]
+    text_files = [f for ext in text_extensions for f in docs_folder.glob(ext)]
+
+    # Processing document files
+    document_extensions = ["*.pdf"]
+    document_files = [f for ext in document_extensions for f in docs_folder.glob(ext)]
+
+    for pdf in document_files:
+        txt_out = docs_folder / f"{pdf.stem}.txt"
+        if txt_out.exists():
+            continue
+
+        # Create a temporary OCRed PDF
+        ocred_pdf = pdf.with_suffix(".ocred.pdf")
+        try:
+            ocrmypdf.ocr(str(pdf), str(ocred_pdf), skip_text=True, language="por")
+            doc = fitz.open(str(ocred_pdf))
+            with open(txt_out, "w", encoding="utf-8") as f:
+                for page in doc:
+                    f.write(page.get_text())
+        finally:
+            if ocred_pdf.exists():
+                ocred_pdf.unlink()
 
     # Processing audio function
     def audio_processing_job(audio_file):
@@ -429,9 +452,7 @@ def main():
     def build_rag_prompt(query, retrieved_chunks):
         context = "\n\n".join(retrieved_chunks)
 
-        return config["retrieval"]["prompt"].format(
-            context=retrieved_chunks, query=query
-        )
+        return config["retrieval"]["prompt"].format(context=context, query=query)
 
     top_k_texts = [result["text"] for result in top_results]
     prompt = build_rag_prompt(query, top_k_texts)

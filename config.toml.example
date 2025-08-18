@@ -3,7 +3,7 @@ api_key                  = ""  # Groq API key
 
 [paths]
 audio_folder             = "input-data"         # Folder for raw audio files
-text_folder              = "input-data"         # Folder for raw text files
+docs_folder              = "input-data"         # Folder for raw text files
 output_folder            = "processed-audio"    # Folder for processed audio
 log_folder               = "log"                # Folder for logs
 transcription_folder     = "transcripted-audio" # Folder for transcripts

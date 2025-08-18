@@ -1,31 +1,52 @@
-# Dog - Local RAG
+# dog
 
-This project is a local RAG (Retrieval-Augmented Generation) pipeline that uses Whisper for audio transcription.
+`dog` is a local Retrieval-Augmented Generation (RAG) pipeline.
 
-## Usage
+## What it does
 
-There are two main scripts in this project:
+`dog` can process local audio and text files to answer questions about their content. It performs the following steps:
 
-*   `main.py`: This script is optimized for CPU usage and uses the `faster-whisper` library for fast transcription on CPUs.
-*   `main_gpu.py`: This script is optimized for GPU usage and uses the `faster-whisper` library with CUDA acceleration.
+1.  **Audio Processing**: Cleans and enhances audio files (`.mp3`, `.wav`, `.flac`, `.aac`, `.ogg`, `.m4a`).
+2.  **Audio Transcription**: Transcribes audio files into text using Whisper.
+3.  **Text Cleaning**: Cleans the transcribed text and any provided text files (`.txt`, `.org`, `.md`) using the Groq API.
+4.  **Indexing**: Creates embeddings of the cleaned text and indexes them using FAISS for efficient retrieval.
+5.  **Question Answering**: Takes a user-defined query, retrieves the most relevant text chunks, and uses a large language model to generate a comprehensive answer.
 
-To run the scripts, you first need to install the dependencies using `rye sync`.
+## How to use it
 
-Then, you can run the scripts using the following commands:
+### Dependencies
 
-```bash
-# For CPU usage
-python main.py
+- **ffmpeg**: This project requires `ffmpeg` to be installed on your system. You can download it from [ffmpeg.org](https://ffmpeg.org/download.html) or install it using your system's package manager (e.g., `sudo apt install ffmpeg` on Debian/Ubuntu, `brew install ffmpeg` on macOS).
 
-# For GPU usage
-python main_gpu.py
-```
+### Installation
 
-## Configuration
+This project uses `uv` for package management. You can find installation instructions for `uv` [here](https://github.com/astral-sh/uv).
 
-The configuration for the project is located in the `input-data/config.toml` file. You can copy the `input-data/config.toml.example` file to `input-data/config.toml` and modify it to your needs.
+1.  **Create a virtual environment**:
+    ```bash
+    uv venv
+    ```
+2.  **Activate the virtual environment**:
+    ```bash
+    source .venv/bin/activate
+    ```
+3.  **Install Python dependencies**:
+    ```bash
+    uv pip install -e .
+    ```
 
-The configuration file allows you to specify the following:
+### Configuration
 
-*   Paths to the audio folder, output folder, and log folder.
-*   The Whisper model to use for transcription.
+1.  Create a `config.toml` file from the `config.toml.example` file.
+2.  Add your Groq API key to the `config.toml` file.
+3.  Define the input folders for your audio and text files in `config.toml`.
+4.  Add your audio/text files to the input folder
+
+### Usage
+
+1.  **Run the pipeline**:
+    ```bash
+    python main.py
+    ```
+2.  **Ask a question**:
+    - Modify the `QUERY` variable in `main.py` to ask your question.

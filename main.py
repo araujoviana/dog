@@ -1,3 +1,7 @@
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import nltk
 from nltk.tokenize import sent_tokenize
 import ffmpeg
@@ -15,7 +19,7 @@ from groq import Groq
 import time
 from sentence_transformers import SentenceTransformer, CrossEncoder
 
-# TODO Remove unused imports
+QUERY = "Como vai funcionar a matéria de paradigmas de programação?"
 
 
 # REVIEW Learn audio processing
@@ -369,7 +373,7 @@ def main():
     index.add(np.array(embeddings))
 
     # Query processing
-    query = "O que é um processo em um sistema operacional?"
+    query = QUERY
     query_vec = embedding_model.encode([query])
     query_vec = query_vec / np.linalg.norm(query_vec, axis=1, keepdims=True)
 

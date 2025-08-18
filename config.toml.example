@@ -1,34 +1,58 @@
 [auth]
-api_key = ""  # Groq AI API key for accessing the LLM
+api_key                  = ""  # Groq API key
 
 [paths]
-audio_folder = "input-data"           # Folder containing raw audio files
-text_folder = "input-data"            # Folder containing input text files
-output_folder = "processed-audio"     # Folder to store processed audio
-log_folder = "log"                     # Folder to store logs
-transcription_folder = "transcripted-audio"  # Folder to store raw transcriptions
-cleaned_folder = "cleaned-text"       # Folder to store cleaned / formatted text
+audio_folder             = "input-data"         # Folder for raw audio files
+text_folder              = "input-data"         # Folder for raw text files
+output_folder            = "processed-audio"    # Folder for processed audio
+log_folder               = "log"                # Folder for logs
+transcription_folder     = "transcripted-audio" # Folder for transcripts
+cleaned_folder           = "cleaned-text"       # Folder for cleaned text outputs
 
-[llm]
-model = "meta-llama/llama-4-maverick-17b-128e-instruct"  # LLM model used for transcription cleaning and formatting
-api_call_cooldown = 5  # Seconds to wait between LLM API calls
+[audio]
+model                    = "small"               # Whisper flavor for audio transcription
 
-audio_prompt = """
+[clean_up]
+model                    = "meta-llama/llama-4-maverick-17b-128e-instruct"  # LLM used for text cleaning
+api_call_cooldown        = 5                                                # Seconds between API calls
+audio_prompt             = """
 INSTRUÇÃO:
-<...>
-
+Você é um limpador de transcrições de áudio. Corrija erros, normalize formatação e preserve termos técnicos.
 TEXTO DE ENTRADA:
 {text_chunk}
 
 TEXTO LIMPO EM MARKDOWN:
-"""  # Prompt used when sending audio transcription chunks to the LLM for cleaning
+"""  # Prompt for cleaning audio transcripts
 
-text_prompt = """
+text_prompt              = """
 INSTRUÇÃO:
-<...>
-
-TEXTO DE ENTRADA:
+Você organiza e limpa textos. Corrija erros, formate em markdown e use blocos KaTeX para fórmulas.
+Texto para processar:
 {text_chunk}
+"""  # Prompt for general text cleaning
 
-TEXTO LIMPO EM MARKDOWN:
-"""  # Prompt used when sending plain text chunks to the LLM for cleaning
+[embedding]
+embedding_model          = "all-MiniLM-L6-v2"                      # Model for embedding text
+cross_encoder            = "cross-encoder/ms-marco-MiniLM-L-12-v2" # Model for reranking retrieved chunks
+tokenizer                = "tokenizers/punkt_tab"                  # Tokenizer for sentence splitting
+chunk_size               = 128                                     # Max tokens per chunk
+overlap                  = 50                                      # Token overlap between chunks
+retrieved_chunks         = 5                                       # Number of chunks to retrieve per query
+graph_neighbours         = 32                                      # HNSW graph parameter
+ef_construction          = 200                                     # HNSW construction parameter
+ef_search                = 64                                      # HNSW search parameter
+
+["retrieval"]
+model                    = "openai/gpt-oss-120b"  # Model for final answer generation
+prompt                   = """
+Você é um assistente de IA. Use apenas o contexto abaixo para responder à pergunta.
+CONTEXTOS:
+{context}
+
+PERGUNTA:
+{query}
+
+RESPOSTA:
+"""  # Prompt template for RAG retrieval answers
+temperature              = 0.2
+top_p                    = 0.9

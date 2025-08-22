@@ -1,0 +1,9 @@
+services:
+  dog:
+    build: .
+    volumes:
+      - ./input-data:/app/input-data
+      - results:/app/output
+
+volumes:
+  results:

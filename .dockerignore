@@ -1,0 +1,20 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Project Data (handled by volumes)
+input-data/
+results/

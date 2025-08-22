@@ -2,29 +2,36 @@
 api_key                  = ""  # Groq API key
 
 [paths]
-audio_folder             = "input-data"         # Folder for raw audio files
-docs_folder              = "input-data"         # Folder for raw text files
-output_folder            = "processed-audio"    # Folder for processed audio
-log_folder               = "log"                # Folder for logs
-transcription_folder     = "transcripted-audio" # Folder for transcripts
-cleaned_folder           = "cleaned-text"       # Folder for cleaned text outputs
+audio_folder              = "input-data"         # Folder for raw audio files
+docs_folder               = "input-data"         # Folder for raw text files
+preprocessed_audio_folder = "preprocessed_audio" # Folder for preprocessed audio
+output_folder             = "processed-audio"    # Folder for processed audio
+log_folder                = "log"                # Folder for logs
+transcription_folder      = "transcripted-audio" # Folder for transcripts
+cleaned_folder            = "cleaned-text"       # Folder for cleaned text outputs
 
 [audio]
 model                    = "small"               # Whisper flavor for audio transcription
 
+[ocr_settings]
+language = "por"  # Tesseract language code
+
 [clean_up]
-model                    = "meta-llama/llama-4-maverick-17b-128e-instruct"  # LLM used for text cleaning
-api_call_cooldown        = 5                                                # Seconds between API calls
-audio_prompt             = """
+model             = "meta-llama/llama-4-maverick-17b-128e-instruct"  # LLM used for text cleaning
+api_call_cooldown = 5                                                # Seconds between API calls
+chunk_size        = 8000                                           # Max characters per API call for cleaning
+audio_prompt      = """
 INSTRUÇÃO:
 Você é um limpador de transcrições de áudio. Corrija erros, normalize formatação e preserve termos técnicos.
 TEXTO DE ENTRADA:
 {text_chunk}
 
+
+
 TEXTO LIMPO EM MARKDOWN:
 """  # Prompt for cleaning audio transcripts
 
-text_prompt              = """
+text_prompt = """
 INSTRUÇÃO:
 Você organiza e limpa textos. Corrija erros, formate em markdown e use blocos KaTeX para fórmulas.
 Texto para processar:
@@ -32,15 +39,12 @@ Texto para processar:
 """  # Prompt for general text cleaning
 
 [embedding]
-embedding_model          = "all-MiniLM-L6-v2"                      # Model for embedding text
-cross_encoder            = "cross-encoder/ms-marco-MiniLM-L-12-v2" # Model for reranking retrieved chunks
-tokenizer                = "tokenizers/punkt_tab"                  # Tokenizer for sentence splitting
-chunk_size               = 128                                     # Max tokens per chunk
-overlap                  = 50                                      # Token overlap between chunks
-retrieved_chunks         = 5                                       # Number of chunks to retrieve per query
-graph_neighbours         = 32                                      # HNSW graph parameter
-ef_construction          = 200                                     # HNSW construction parameter
-ef_search                = 64                                      # HNSW search parameter
+embedding_model          = "all-MiniLM-L6-v2"
+cross_encoder            = "cross-encoder/ms-marco-MiniLM-L-12-v2"
+chunk_size               = 512  # Character count, not tokens
+overlap                  = 100  # Character count
+candidates_to_retrieve   = 25   # Number of chunks to get from vector store before reranking
+final_chunks_to_use      = 5    # Number of chunks to use after reranking
 
 ["retrieval"]
 model                    = "openai/gpt-oss-120b"  # Model for final answer generation

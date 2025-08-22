@@ -34,7 +34,7 @@ def main():
         return 1
 
     # Sets up logging
-    setup_logging(log_folder=app_config.paths["logs"])
+    setup_logging(log_folder=app_config.paths["log_folder"])
 
     log.info("Starting dog 🐕")
 

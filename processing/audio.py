@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 import ffmpeg
-import whisper
+from faster_whisper import WhisperModel
 
 # Get a logger for this module
 from utils.logging import DOG_LOGGER_NAME
@@ -15,24 +15,28 @@ AUDIO_EXTENSIONS = ["*.mp3", "*.wav", "*.flac", "*.aac", "*.ogg", "*.m4a"]
 class AudioProcessor:
     """Encapsulates audio preprocessing and transcription."""
 
-    def __init__(self, model_name: str, device: str = "cpu") -> None:
+    def __init__(
+        self, model_name: str, device: str = "cpu", compute_type: str = "int8"
+    ):
         """
-        Initializes the processor and loads the transcription model.
-
-        Args:
-            model_name (str): The name of the Whisper model to load (e.g., "base").
-            device (str): The device to run the model on (e.g., "cpu", "cuda").
+        Initializes the processor and loads the faster-whisper model.
         """
         self.device = device
         self.model_name = model_name
+        self.compute_type = compute_type  # New: Store compute_type
+
         log.info(
-            f"Loading Whisper model '{self.model_name}' onto device '{self.device}'."
+            f"Loading Whisper model '{self.model_name}' onto device '{self.device}' "
+            f"with compute type '{self.compute_type}'."
         )
         try:
-            self.model = whisper.load_model(self.model_name, device=self.device)
-            log.info("Whisper model loaded successfully.")
+            # Changed: Use WhisperModel for loading
+            self.model = WhisperModel(
+                self.model_name, device=self.device, compute_type=self.compute_type
+            )
+            log.info("faster-whisper model loaded successfully.")
         except Exception as e:
-            log.error(f"Failed to load Whisper model: {e}")
+            log.error(f"Failed to load faster-whisper model: {e}")
             raise
 
     def _preprocess_ffmpeg(self, input_path: Path, output_path: Path) -> bool:
@@ -62,26 +66,23 @@ class AudioProcessor:
             return False
 
     def _transcribe_file(self, audio_path: Path, transcription_path: Path) -> bool:
-        """
-        Transcribes a single audio file using the pre-loaded model.
-
-        Returns:
-            bool: True if transcription was successful or skipped, False on error.
-        """
+        """Transcribes a single audio file using the pre-loaded faster-whisper model."""
         if transcription_path.exists():
             log.info(f"Transcription already exists, skipping: {transcription_path}")
             return True
 
         log.info(f"Transcribing: {audio_path}")
         try:
-            result = self.model.transcribe(
+            segments, info = self.model.transcribe(
                 str(audio_path), language="pt"
-            )  # TODO enable language changing
+            )  # REVIEW remove `info`?
+
             with transcription_path.open("w", encoding="utf-8") as f:
-                f.write(result["text"])
+                for segment in segments:
+                    f.write(segment.text)
             return True
         except Exception as e:
-            log.error(f"Whisper error on {audio_path}: {e}")
+            log.error(f"faster-whisper error on {audio_path}: {e}")
             return False
 
     def process_directory(

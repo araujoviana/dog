@@ -44,6 +44,7 @@ def main():
         audio_processor = AudioProcessor(
             model_name=app_config.audio_settings["model"],
             device="cpu",  # Audio shouldn't be sent to Groq
+            compute_type=app_config.audio_settings["compute_type"],
         )
 
         # Delegate the entire job to the processor

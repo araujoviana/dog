@@ -16,7 +16,8 @@ from processing.docs import DocumentProcessor
 from utils.logging import setup_logging, DOG_LOGGER_NAME
 from utils.config import load_configuration
 
-# TODO Isolate parts into modules
+# TODO Add a "ignore audio" flag
+# TODO Fix docker stuff
 
 # Gets a logger for this module
 log = logging.getLogger(f"{DOG_LOGGER_NAME}.{__name__}")

@@ -17,4 +17,4 @@ log/*
 processed-audio/*
 cleaned-text/*
 transcripted-audio/*
-preprocessed-audio/*
+preprocessed_audio/*

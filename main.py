@@ -43,11 +43,9 @@ def main():
     try:
         audio_processor = AudioProcessor(
             model_name=app_config.audio_settings["model"],
-            device="cpu",  # Audio shouldn't be sent to Groq
-            compute_type=app_config.audio_settings["compute_type"],
+            device=app_config.audio_settings["device"],
         )
 
-        # Delegate the entire job to the processor
         audio_processor.process_directory(
             input_dir=app_config.paths["audio_folder"],
             preprocessed_dir=app_config.paths["preprocessed_audio_folder"],

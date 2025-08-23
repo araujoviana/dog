@@ -12,12 +12,11 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock* ./
+COPY --chown=dog:dog pyproject.toml uv.lock* ./
 
-RUN uv sync --frozen --no-install-project
+RUN su dog -c "uv sync --frozen --no-install-project"
 
-COPY . .
-RUN chown -R appuser:appuser /home/appuser/app
+COPY --chown=dog:dog . .
 
 USER dog
 

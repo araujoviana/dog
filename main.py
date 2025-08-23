@@ -42,17 +42,22 @@ def main():
     log.info("Starting audio processing pipeline.")
 
     try:
-        audio_processor = AudioProcessor(
-            model_name=app_config.audio_settings["model"],
-            device=app_config.audio_settings["device"],
-        )
+        if not app_config.audio_settings["ignore-processing"]:
+            audio_processor = AudioProcessor(
+                model_name=app_config.audio_settings["model"],
+                device=app_config.audio_settings["device"],
+            )
 
-        audio_processor.process_directory(
-            input_dir=app_config.paths["audio_folder"],
-            preprocessed_dir=app_config.paths["preprocessed_audio_folder"],
-            transcription_dir=app_config.paths["transcription_folder"],
-        )
-        log.info("Audio processing pipeline finished successfully.")
+            audio_processor.process_directory(
+                input_dir=app_config.paths["audio_folder"],
+                preprocessed_dir=app_config.paths["preprocessed_audio_folder"],
+                transcription_dir=app_config.paths["transcription_folder"],
+            )
+            log.info("Audio processing pipeline finished successfully.")
+        else:
+            log.warning(
+                "Skipping audio processing, you can enable it again in the config.toml file"
+            )
     except KeyError as e:
         log.error(
             f"Configuration key error: {e}. Check that the key exists in config.toml."

@@ -1,9 +1,12 @@
 services:
   dog:
     build: .
+    stdin_open: true
+    tty: true
     volumes:
-      - ./input-data:/app/input-data
-      - results:/app/output
+      - ./config.toml:/home/dog/app/config.toml
+      - ./input-data:/home/dog/app/input-data
+      - results:/home/dog/app/output
 
 volumes:
   results:

@@ -166,7 +166,66 @@
             </ul>
         </nav>
         <main class="container" id="main-content">
-            <h1>Welcome!</h1>
+            <div id="welcome-page" style="
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    min-height:70vh;
+    text-align:center;
+    color: var(--pico-zinc-100);
+    margin: 0 auto;
+    max-width:900px;
+">
+                <h1 style="font-size:3rem; margin-bottom:0.5rem;">Welcome to Dog 🐕</h1>
+                <p style="font-size:1.2rem; color: var(--pico-zinc-400); margin-bottom:2rem;">
+                    Your AI assistant for Q&A, knowledge management, and data processing.
+                </p>
+
+                <div style="display:flex; flex-wrap:wrap; gap:1rem; justify-content:center;">
+                    <div style="
+            background:var(--pico-zinc-800);
+            padding:1rem 1.5rem;
+            border-radius:12px;
+            border:1px solid var(--pico-zinc-700);
+            min-width:180px;
+            flex:1 1 180px;
+            box-shadow:0 2px 6px rgba(0,0,0,0.15);
+        ">
+                        <strong>Ask Questions</strong>
+                        <p style="font-size:0.9rem; color:var(--pico-zinc-300); margin-top:0.5rem;">Interact with the AI
+                            and get instant answers.</p>
+                    </div>
+
+                    <div style="
+            background:var(--pico-zinc-800);
+            padding:1rem 1.5rem;
+            border-radius:12px;
+            border:1px solid var(--pico-zinc-700);
+            min-width:180px;
+            flex:1 1 180px;
+            box-shadow:0 2px 6px rgba(0,0,0,0.15);
+        ">
+                        <strong>Settings</strong>
+                        <p style="font-size:0.9rem; color:var(--pico-zinc-300); margin-top:0.5rem;">Configure your AI
+                            environment and knowledge base.</p>
+                    </div>
+
+                    <div style="
+            background:var(--pico-zinc-800);
+            padding:1rem 1.5rem;
+            border-radius:12px;
+            border:1px solid var(--pico-zinc-700);
+            min-width:180px;
+            flex:1 1 180px;
+            box-shadow:0 2px 6px rgba(0,0,0,0.15);
+        ">
+                        <strong>Manage Data</strong>
+                        <p style="font-size:0.9rem; color:var(--pico-zinc-300); margin-top:0.5rem;">Upload, view, and
+                            process your documents and audio files.</p>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 </body>

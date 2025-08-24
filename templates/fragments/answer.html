@@ -1,3 +1,30 @@
-<div class="answer">
-    <p>{{ answer | safe }}</p>
+<div>
+    {{ answer | safe }}
 </div>
+
+{% if retrieved_chunks %}
+<h4 style="position:sticky; top:0; background:var(--pico-zinc-800); margin:0; padding:0.5rem;">Retrieved Context
+</h4>
+<div style="
+    margin-top:1rem;
+    padding:0.5rem;
+    max-height:400px;
+    overflow-y:auto;
+    border:1px solid var(--pico-zinc-700);
+    border-radius:8px;
+    background:var(--pico-zinc-800);
+">
+
+    {% for chunk in retrieved_chunks %}
+    <div style="
+        background:var(--pico-zinc-700);
+        border-radius:6px;
+        padding:0.5rem;
+        margin-top:0.5rem;
+        box-shadow:0 2px 4px rgba(0,0,0,0.2);
+    ">
+        {{ chunk | safe }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

@@ -114,7 +114,7 @@ class RAGPipeline:
         )
         log.info("Knowledge base built successfully.")
 
-    def query(self, query_string: str) -> str:
+    def query(self, query_string: str) -> tuple[str, list]:
         """
         Takes a user query, retrieves context, and generates a final answer.
 
@@ -122,7 +122,7 @@ class RAGPipeline:
             query_string (str): The user's question.
 
         Returns:
-            str: The generated answer, or an error message.
+            tuple[str, list]: The generated answer (or error message) and the list of retrieved chunks.
         """
         log.info(f"Received query: '{query_string}'")
         try:
@@ -135,7 +135,8 @@ class RAGPipeline:
             if not retrieved_context:
                 log.warning("No relevant context found for the query.")
                 return (
-                    "Error: Could not find relevant information to answer the question."
+                    "Error: Could not find relevant information to answer the question.",
+                    [],
                 )
 
             # 2. Build the prompt
@@ -148,13 +149,16 @@ class RAGPipeline:
             # 3. Generate the answer
             final_answer = self.answer_generator.generate(prompt=final_prompt)
             if not final_answer:
-                return "Error: The model failed to generate a final answer."
+                return (
+                    "Error: The model failed to generate a final answer.",
+                    retrieved_context,
+                )
 
             log.info("Successfully generated answer.")
-            return final_answer
+            return final_answer, retrieved_context
         except Exception as e:
             log.error(f"An error occurred during the query process: {e}", exc_info=True)
-            return "Error: A critical error occurred while processing the request."
+            return "Error: A critical error occurred while processing the request.", []
 
 
 def cli_runner():
@@ -175,8 +179,11 @@ def cli_runner():
             pipeline.build_knowledge_base()
 
         user_query = input("Query: ")
-        answer = pipeline.query(user_query)
+        answer, retrieved_chunks = pipeline.query(user_query)
 
+        print("\n--- Retrieved Chunks ---\n")
+        print(retrieved_chunks)
+        print("\n----------------------\n")
         print("\n--- Generated Answer ---\n")
         print(answer)
         print("\n----------------------\n")

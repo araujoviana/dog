@@ -1,7 +1,7 @@
 <h1>Settings</h1>
 
 <form hx-post="/save-config" hx-target="#config-result" hx-swap="innerHTML">
-    <label for="config-text">config.toml:</label>
+    <label for="config-text">config.toml</label>
     <textarea id="config-text" name="config" rows="15"
         style="width: 100%; font-size: 0.9rem;">{{ config_content }}</textarea>
 
@@ -11,9 +11,26 @@
 
 <div class="grid">
     <button hx-post="/refresh-kb" hx-target="#config-result" hx-swap="innerHTML"
-        style="margin-top: 1rem; font-size: 0.9rem; padding: 0.3rem 0.6rem;">🔄 Refresh knowledge base</button>
+        hx-on="htmx:beforeRequest: document.getElementById('config-result').innerHTML='⏳ Running… (This will take a while)';"
+        style="margin-top: 1rem; font-size: 0.9rem; padding: 0.3rem 0.6rem;">
+        🔄 Refresh knowledge base
+    </button>
+
     <button hx-post="/process-data" hx-target="#config-result" hx-swap="innerHTML"
-        style="margin-top: 1rem; font-size: 0.9rem; padding: 0.3rem 0.6rem;">⚙️ Process data sources</button>
+        hx-on="htmx:beforeRequest: document.getElementById('config-result').innerHTML='⏳ Running…';"
+        style="margin-top: 1rem; font-size: 0.9rem; padding: 0.3rem 0.6rem;">
+        ⚙️ Process data sources
+    </button>
 </div>
 
-<div id="config-result" style="margin-top: 0.5rem; color: green;"></div>
+<div id="config-result" style="
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--pico-zinc-700);
+    border-radius: 8px;
+    background: var(--pico-zinc-800);
+    color: var(--pico-zinc-100);
+    min-height: 40px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+">
+</div>

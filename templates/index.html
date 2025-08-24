@@ -4,18 +4,22 @@
 <head>
     <title>Dog RAG</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 
 <body>
-    <h1>Dog RAG</h1>
+    <div class="rag-top">
+        <h1>Dog 🐕</h1>
 
-    <form hx-post="/ask" hx-target="#result" hx-swap="innerHTML">
-        <textarea name="query" rows="3" cols="50" placeholder="Ask me something..."></textarea>
-        <br>
-        <button type="submit">Ask</button>
-    </form>
+        <form hx-post="/ask" hx-target="#result" hx-swap="innerHTML">
+            <textarea name="query" rows="3" cols="50" placeholder="Ask me something..."></textarea>
+            <br>
+            <button type="submit">Ask</button>
+        </form>
 
-    <div id="result"></div>
+        <div id="result"></div>
+    </div>
 </body>
 
 </html>

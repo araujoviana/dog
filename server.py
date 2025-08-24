@@ -36,6 +36,9 @@ app.mount("/docs", StaticFiles(directory=DOCS_FOLDER), name="docs")
 
 templates = Jinja2Templates(directory="templates")
 rag = RAGPipeline()
+# Create knowledge base (slow on the first run)
+# rag.process_data_sources()
+rag.build_knowledge_base()
 
 
 # ======================
@@ -137,7 +140,7 @@ async def upload_doc(file: UploadFile = File(...)):
 @app.post("/refresh-kb", response_class=HTMLResponse)
 def refresh_knowledge_base():
     """Rebuild knowledge base."""
-    rag.build_knowledge_base()
+    rag.build_knowledge_base(force_rebuild=True)
     return HTMLResponse("<p>Knowledge base updated ✅</p>")
 
 

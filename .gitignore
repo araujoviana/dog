@@ -18,3 +18,5 @@ processed-audio/*
 cleaned-text/*
 transcripted-audio/*
 preprocessed_audio/*
+*.faiss
+*.json

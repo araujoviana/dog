@@ -1,0 +1,19 @@
+<h1>Settings</h1>
+
+<form hx-post="/save-config" hx-target="#config-result" hx-swap="innerHTML">
+    <label for="config-text">config.toml:</label>
+    <textarea id="config-text" name="config" rows="15"
+        style="width: 100%; font-size: 0.9rem;">{{ config_content }}</textarea>
+
+    <button type="submit" style="margin-top: 0.5rem; font-size: 0.9rem; padding: 0.3rem 0.6rem;">💾 Save</button>
+</form>
+
+
+<div class="grid">
+    <button hx-post="/refresh-kb" hx-target="#config-result" hx-swap="innerHTML"
+        style="margin-top: 1rem; font-size: 0.9rem; padding: 0.3rem 0.6rem;">🔄 Refresh knowledge base</button>
+    <button hx-post="/process-data" hx-target="#config-result" hx-swap="innerHTML"
+        style="margin-top: 1rem; font-size: 0.9rem; padding: 0.3rem 0.6rem;">⚙️ Process data sources</button>
+</div>
+
+<div id="config-result" style="margin-top: 0.5rem; color: green;"></div>

@@ -1,24 +1,173 @@
 <!DOCTYPE html>
-<html>
+<html data-theme="dark">
 
 <head>
     <title>Dog RAG</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.zinc.min.css">
+    <!-- <link rel="stylesheet" href="/static/styles.css"> -->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <style type="text/css" media="screen">
+        /* I dont care about CSS */
+
+        .textarea-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .textarea-wrapper textarea {
+            width: 100%;
+            padding-right: 50px;
+            resize: vertical;
+            min-height: 100px;
+            background: var(--pico-zinc-700);
+            border: 1px solid var(--pico-zinc-600);
+            color: var(--pico-zinc-100);
+        }
+
+        .textarea-wrapper textarea:focus {
+            background: var(--pico-zinc-700);
+            border-color: var(--pico-zinc-500);
+            box-shadow: 0 0 0 2px rgba(113, 113, 122, 0.2);
+        }
+
+        .textarea-wrapper textarea::placeholder {
+            color: var(--pico-zinc-400);
+        }
+
+        .textarea-wrapper button {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            padding: 0;
+            font-size: 1rem;
+            border: none;
+            background: var(--pico-primary);
+            color: var(--pico-primary-inverse);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .textarea-wrapper button:hover {
+            background: var(--pico-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .textarea-wrapper button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        :root {
+            --pico-zinc-50: #fafafa;
+            --pico-zinc-100: #f4f4f5;
+            --pico-zinc-200: #e4e4e7;
+            --pico-zinc-300: #d4d4d8;
+            --pico-zinc-400: #a1a1aa;
+            --pico-zinc-500: #71717a;
+            --pico-zinc-600: #52525b;
+            --pico-zinc-700: #3f3f46;
+            --pico-zinc-800: #27272a;
+            --pico-zinc-900: #18181b;
+        }
+
+        [data-theme="dark"] {
+            --pico-background-color: var(--pico-zinc-900);
+            --pico-color: var(--pico-zinc-100);
+            --pico-muted-color: var(--pico-zinc-400);
+            --pico-card-background-color: var(--pico-zinc-800);
+            --pico-card-border-color: var(--pico-zinc-700);
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--pico-zinc-900) 0%, var(--pico-zinc-800) 100%);
+            min-height: 100vh;
+        }
+
+        nav {
+            backdrop-filter: blur(10px);
+            background: rgba(39, 39, 42, 0.8);
+            border-bottom: 1px solid var(--pico-zinc-700);
+        }
+
+        main {
+            margin-top: 2rem;
+        }
+
+        form {
+            background: var(--pico-zinc-800);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--pico-zinc-700);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        #result {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: var(--pico-zinc-800);
+            border-radius: 12px;
+            border: 1px solid var(--pico-zinc-700);
+            min-height: 60px;
+            display: none;
+        }
+
+        #result:not(:empty) {
+            display: block;
+        }
+
+        .htmx-request .textarea-wrapper button {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .htmx-request .textarea-wrapper button::after {
+            content: "";
+        }
+
+        .htmx-request .textarea-wrapper button::before {
+            content: "⟳";
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
 </head>
 
 <body>
     <div class="rag-top">
-        <h1>Dog 🐕</h1>
-
-        <form hx-post="/ask" hx-target="#result" hx-swap="innerHTML">
-            <textarea name="query" rows="3" cols="50" placeholder="Ask me something..."></textarea>
-            <br>
-            <button type="submit">Ask</button>
-        </form>
-
-        <div id="result"></div>
+        <nav class="container-fluid">
+            <ul>
+                <li><strong>Dog 🐕</strong></li>
+            </ul>
+            <ul>
+                <li><a href="/chat" hx-get="/chat" hx-target="#main-content" hx-swap="innerHTML">Ask</a></li>
+                <li><a href="/config" hx-get="/config" hx-target="#main-content" hx-swap="innerHTML">Settings</a></li>
+                <li><a href="/data" hx-get="/data" hx-target="#main-content" hx-swap="innerHTML">Data</a></li>
+                <li><a href="https://github.com/araujoviana/dog" target="_blank" rel="noopener">Github</a></li>
+            </ul>
+        </nav>
+        <main class="container" id="main-content">
+            <h1>Welcome!</h1>
+        </main>
     </div>
 </body>
 

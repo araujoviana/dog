@@ -1,0 +1,11 @@
+<h1>Q&A</h1>
+<form hx-post="/ask" hx-target="#result" hx-swap="innerHTML">
+    <label for="query">Ask me something:</label>
+    <div class="textarea-wrapper" style="position: relative; width: 100%;">
+        <textarea id="query" name="query" rows="3" style="width: 100%; padding-right: 4rem;"
+            placeholder="O que é um autômato?"></textarea>
+        <button type="submit"
+            style="position: absolute; bottom: 0.3rem; right: 0.3rem; font-size: 0.9rem; padding: 0.4rem 0.8rem;">→</button>
+    </div>
+</form>
+<div id="result" style="margin-top: 1rem;"></div>

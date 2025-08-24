@@ -1,0 +1,37 @@
+<h1>Knowledge Base</h1>
+
+<h2>Document Folder Content</h2>
+<div
+    style="max-height:250px; overflow-y:auto; border:1px solid var(--pico-zinc-700); border-radius:8px; padding:0.5rem; background:var(--pico-zinc-800);">
+    <ul style="margin:0; padding-left:1.2rem;">
+        {% for f in doc_files | sort %}
+        <li><a href="/docs/{{ f }}" target="_blank">{{ f }}</a></li>
+        {% endfor %}
+    </ul>
+</div>
+
+<form hx-post="/upload-doc" hx-target="#doc-result" hx-swap="innerHTML" enctype="multipart/form-data"
+    style="margin-top:0.5rem;">
+    <input type="file" name="file">
+    <button type="submit">📤 Upload Document</button>
+</form>
+<div id="doc-result" style="margin-top:0.5rem;color:green;"></div>
+
+<hr>
+
+<h2>Audio Folder Content</h2>
+<div
+    style="max-height:250px; overflow-y:auto; border:1px solid var(--pico-zinc-700); border-radius:8px; padding:0.5rem; background:var(--pico-zinc-800);">
+    <ul style="margin:0; padding-left:1.2rem;">
+        {% for f in audio_files | sort %}
+        <li><a href="/audio/{{ f }}" target="_blank">{{ f }}</a></li>
+        {% endfor %}
+    </ul>
+</div>
+
+<form hx-post="/upload-audio" hx-target="#audio-result" hx-swap="innerHTML" enctype="multipart/form-data"
+    style="margin-top:0.5rem;">
+    <input type="file" name="file">
+    <button type="submit">📤 Upload Audio</button>
+</form>
+<div id="audio-result" style="margin-top:0.5rem;color:green;"></div>

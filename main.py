@@ -42,7 +42,7 @@ def main():
     log.info("Starting audio processing pipeline.")
 
     try:
-        if not app_config.audio_settings["ignore-processing"]:
+        if not app_config.audio_settings["ignore_processing"]:
             audio_processor = AudioProcessor(
                 model_name=app_config.audio_settings["model"],
                 device=app_config.audio_settings["device"],

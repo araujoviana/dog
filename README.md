@@ -5,17 +5,6 @@
 > [!WARNING]
 > This is a prototype and not ready for production use. The Docker setup is currently not functional.
 
-## What it does
-
-`dog` can process local audio, text, PDF, and image files to answer questions about their content. It performs the following steps:
-
-1.  **Audio Processing**: Cleans and enhances audio files (`.mp3`, `.wav`, `.flac`, `.aac`, `.ogg`, `.m4a`).
-2.  **Audio Transcription**: Transcribes audio files into text using Whisper.
-3.  **Document Processing**: Extracts text from PDF and image files (`.pdf`, `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`) using Tesseract OCR.
-4.  **Text Cleaning**: Cleans the transcribed and extracted text, as well as any provided text files (`.txt`, `.org`, `.md`), using the Groq API.
-5.  **Indexing**: Creates embeddings of the cleaned text and indexes them using FAISS for efficient retrieval.
-6.  **Question Answering**: Takes a user-defined query, retrieves the most relevant text chunks, and uses a large language model to generate a comprehensive answer.
-
 ## How to use it
 
 ### Dependencies
@@ -37,16 +26,15 @@ This project uses `uv` for package management. You can find installation instruc
     ```
 3.  **Install Python dependencies**:
     ```bash
-    uv pip install -e .
+    uv sync
     ```
 
 ### Configuration
 
 1.  Create a `config.toml` file from the `config.toml.example` file.
 2.  Add your Groq API key to the `config.toml` file.
-3.  Define the input folders for your audio, text, and document files in `config.toml`.
-4.  Add your audio/text/document files to the respective input folders.
-5.  (Optional) Configure the different settings in `config.toml` to customize the pipeline's behavior. The available settings are:
+3.  Define the input folders for your audio, and document files in `config.toml`.
+4.  (Optional) Configure the different settings in `config.toml` to customize the pipeline's behavior. The available settings are:
     - `[audio]`: Settings for the audio processing pipeline.
     - `[ocr_settings]`: Settings for the OCR pipeline.
     - `[clean_up]`: Settings for the text cleaning pipeline.
@@ -55,9 +43,17 @@ This project uses `uv` for package management. You can find installation instruc
 
 ### Usage
 
-1.  **Add a question**:
-    - The tool will prompt you to enter a question when you run it.
-2.  **Run the pipeline**:
+1.  **Run the server**:
     ```bash
-    uv run main.py
+    uv run server.py
     ```
+2.  **Open the web interface**:
+    - Open your browser and go to `http://127.0.0.1:8000`.
+3.  **Upload files**:
+    - Use the "Data" tab to upload your audio and document files.
+4.  **Process data**:
+    - Click the "Process data sources" button to process the uploaded files.
+5.  **Refresh knowledge base**:
+    - Click the "Refresh knowledge base" button to build the knowledge base.
+6.  **Ask questions**:
+    - Use the "Chat" tab to ask questions about the content of your files.

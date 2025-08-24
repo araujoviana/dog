@@ -3,8 +3,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import uvicorn
 
+from main import RAGPipeline
+
 
 app = FastAPI()
+
+rag = RAGPipeline()
+rag.build_knowledge_base()
+
 templates = Jinja2Templates(directory="templates")
 
 
@@ -15,9 +21,9 @@ def get_home(request: Request):
 
 @app.post("/ask", response_class=HTMLResponse)
 def post_ask(request: Request, query: str = Form(...)):
-    answer = "TEXT!!"
+    answer = rag.query(query)
     return templates.TemplateResponse(
-        "partials/answer.html", {"request": request, "answer": answer}
+        "fragments/answer.html", {"request": request, "answer": answer}
     )
 
 

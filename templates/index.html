@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Dog RAG</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+
+<body>
+    <h1>Dog RAG</h1>
+
+    <form hx-post="/ask" hx-target="#result" hx-swap="innerHTML">
+        <textarea name="query" rows="3" cols="50" placeholder="Ask me something..."></textarea>
+        <br>
+        <button type="submit">Ask</button>
+    </form>
+
+    <div id="result"></div>
+</body>
+
+</html>

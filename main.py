@@ -1,11 +1,11 @@
-# stdlib imports
+from pathlib import Path
+import argparse
 import sys
 import os
 import logging
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Local imports
 from ml.llm import TextCleaner
 from ml.vector import VectorStoreManager
 from ml.retrieval import Retriever, build_rag_prompt
@@ -16,197 +16,176 @@ from processing.docs import DocumentProcessor
 from utils.logging import setup_logging, DOG_LOGGER_NAME
 from utils.config import load_configuration
 
-# TODO Add a "ignore audio" flag
-# TODO Fix docker stuff
-
-# Gets a logger for this module
 log = logging.getLogger(f"{DOG_LOGGER_NAME}.{__name__}")
 
 
-def main():
-    # TODO add frontend
-    query = input("Query:")
+class RAGPipeline:
+    """
+    Encapsulates the entire RAG pipeline from data processing to answer generation.
+    """
 
-    try:
-        app_config = load_configuration()
-        app_config.setup_directories()
-    except FileNotFoundError as e:
-        log.error(f"Error {e}")
-        return 1
+    def __init__(self, config_path: str = "config.toml"):
+        """
+        Loads configuration and initializes all components of the pipeline.
+        This is the expensive, one-time setup.
+        """
+        log.info("Initializing RAG Pipeline...")
+        try:
+            self.config = load_configuration(Path(config_path))
+            self.config.setup_directories()
+            setup_logging(log_folder=self.config.paths["log_folder"])
 
-    # Sets up logging
-    setup_logging(log_folder=app_config.paths["log_folder"])
-
-    log.info("Starting dog 🐕")
-
-    log.info("Starting audio processing pipeline.")
-
-    try:
-        if not app_config.audio_settings["ignore_processing"]:
-            audio_processor = AudioProcessor(
-                model_name=app_config.audio_settings["model"],
-                device=app_config.audio_settings["device"],
+            # Initialize all processors and managers
+            self.audio_processor = AudioProcessor(
+                model_name=self.config.audio_settings["model"],
+                device=self.config.audio_settings["device"],
             )
-
-            audio_processor.process_directory(
-                input_dir=app_config.paths["audio_folder"],
-                preprocessed_dir=app_config.paths["preprocessed_audio_folder"],
-                transcription_dir=app_config.paths["transcription_folder"],
+            self.doc_processor = DocumentProcessor(
+                language=self.config.ocr_settings["language"]
             )
-            log.info("Audio processing pipeline finished successfully.")
-        else:
-            log.warning(
-                "Skipping audio processing, you can enable it again in the config.toml file"
+            self.text_cleaner = TextCleaner(
+                auth_config=self.config.auth,
+                cleanup_config=self.config.cleanup_settings,
             )
-    except KeyError as e:
-        log.error(
-            f"Configuration key error: {e}. Check that the key exists in config.toml."
+            self.vector_store = VectorStoreManager(
+                embedding_model_name=self.config.embedding_settings["embedding_model"]
+            )
+            self.retriever = Retriever(
+                vector_store=self.vector_store,
+                cross_encoder_name=self.config.embedding_settings["cross_encoder"],
+            )
+            self.answer_generator = AnswerGenerator(
+                auth_config=self.config.auth,
+                retrieval_config=self.config.retrieval_settings,
+            )
+            log.info("RAG Pipeline initialized successfully.")
+        except Exception as e:
+            log.critical(f"Failed to initialize RAG Pipeline: {e}", exc_info=True)
+            raise
+
+    def process_data_sources(self):
+        """
+        Runs the full data ingestion and processing pipeline.
+        This includes audio, documents, and text cleaning.
+        """
+        log.info("Starting data source processing...")
+        # 1. Audio Processing
+        if not self.config.audio_settings.get("ignore_processing", False):
+            self.audio_processor.process_directory(
+                input_dir=self.config.paths["audio_folder"],
+                preprocessed_dir=self.config.paths["preprocessed_audio_folder"],
+                transcription_dir=self.config.paths["transcription_folder"],
+            )
+        # 2. Document Processing
+        self.doc_processor.process_directory(
+            input_dir=self.config.paths["docs_folder"],
+            output_dir=self.config.paths["cleaned_folder"],
         )
-        sys.exit(1)
-    except Exception as e:
-        log.error(
-            f"An unexpected error occurred during audio processing: {e}", exc_info=True
-        )
-        sys.exit(1)
-
-    log.info("Audio processing pipeline finished.")
-
-    # Processes document files
-
-    log.info("Starting document processing pipeline.")
-    try:
-        doc_processor = DocumentProcessor(language=app_config.ocr_settings["language"])
-
-        doc_processor.process_directory(
-            input_dir=app_config.paths["docs_folder"],
-            output_dir=app_config.paths["cleaned_folder"],
-        )
-        log.info("Document processing pipeline finished successfully.")
-    except KeyError as e:
-        log.error(f"Configuration key error in [ocr_settings]: {e}.")
-        sys.exit(1)
-    except Exception as e:
-        log.error(
-            f"An unexpected error occurred during document processing: {e}",
-            exc_info=True,
-        )
-        sys.exit(1)
-
-    log.info("Initializing text cleaning pipeline.")
-    try:
-        text_cleaner = TextCleaner(
-            auth_config=app_config.auth, cleanup_config=app_config.cleanup_settings
-        )
-
-        # Clean audio transcriptions
+        # 3. Text Cleaning
         transcription_files = list(
-            app_config.paths["transcription_folder"].glob("*.txt")
+            self.config.paths["transcription_folder"].glob("*.txt")
         )
         if transcription_files:
-            text_cleaner.process_files(
+            self.text_cleaner.process_files(
                 file_paths=transcription_files,
-                output_dir=app_config.paths["cleaned_folder"],
+                output_dir=self.config.paths["cleaned_folder"],
                 file_type="audio",
             )
-
-        # Clean raw text documents
         text_files = [
             f
             for ext in TEXT_EXTENSIONS
-            for f in app_config.paths["docs_folder"].glob(ext)
+            for f in self.config.paths["docs_folder"].glob(ext)
         ]
         if text_files:
-            text_cleaner.process_files(
+            self.text_cleaner.process_files(
                 file_paths=text_files,
-                output_dir=app_config.paths["cleaned_folder"],
+                output_dir=self.config.paths["cleaned_folder"],
                 file_type="text",
             )
+        log.info("Data source processing finished.")
 
-        log.info("Text cleaning pipeline finished.")
-    except Exception as e:
-        log.error(
-            f"An unexpected error occurred during text cleaning: {e}", exc_info=True
+    def build_knowledge_base(self):
+        """Builds or rebuilds the vector store index from the processed text."""
+        log.info("Building knowledge base vector store...")
+        self.vector_store.build_index(
+            data_dir=self.config.paths["cleaned_folder"],
+            chunk_size=self.config.embedding_settings["chunk_size"],
+            chunk_overlap=self.config.embedding_settings["overlap"],
         )
-        sys.exit(1)
+        log.info("Knowledge base built successfully.")
 
-    # --- RAG stuff starts here ---
+    def query(self, query_string: str) -> str:
+        """
+        Takes a user query, retrieves context, and generates a final answer.
 
-    log.info("Initializing RAG vector store and retriever.")
-    try:
-        # Initialize and build the vector store
-        vector_store = VectorStoreManager(
-            embedding_model_name=app_config.embedding_settings["embedding_model"]
-        )
-        vector_store.build_index(
-            data_dir=app_config.paths["cleaned_folder"],
-            chunk_size=app_config.embedding_settings["chunk_size"],
-            chunk_overlap=app_config.embedding_settings["overlap"],
-        )
+        Args:
+            query_string (str): The user's question.
 
-        # Initialize the retriever
-        retriever = Retriever(
-            vector_store=vector_store,
-            cross_encoder_name=app_config.embedding_settings["cross_encoder"],
-        )
-
-        # Execute the retrieval and reranking process
-        retrieved_context = retriever.retrieve_and_rerank(
-            query=query,
-            initial_k=app_config.embedding_settings["candidates_to_retrieve"],
-            final_k=app_config.embedding_settings["final_chunks_to_use"],
-        )
-
-        # Generate final prompt
-        if retrieved_context:
-            final_prompt = build_rag_prompt(
-                query=query,
-                retrieved_chunks=retrieved_context,
-                prompt_template=app_config.retrieval_settings["prompt"],
-            )
-            log.info("Successfully generated final RAG prompt.")
-            log.info(f"Final prompt -> {final_prompt}")
-        else:
-            log.warning(
-                "Could not retrieve any context for the query. Cannot generate prompt."
-            )
-
-    except Exception as e:
-        log.error(f"An error occurred during the RAG process: {e}", exc_info=True)
-        sys.exit(1)
-
-    # --- Retrieval starts here ---
-
-    if final_prompt:
-        log.info("Generating final answer from retrieved context.")
+        Returns:
+            str: The generated answer, or an error message.
+        """
+        log.info(f"Received query: '{query_string}'")
         try:
-            # Instantiate and run the final generation component
-            answer_generator = AnswerGenerator(
-                auth_config=app_config.auth,
-                retrieval_config=app_config.retrieval_settings,
+            # 1. Retrieve context
+            retrieved_context = self.retriever.retrieve_and_rerank(
+                query=query_string,
+                initial_k=self.config.embedding_settings["candidates_to_retrieve"],
+                final_k=self.config.embedding_settings["final_chunks_to_use"],
             )
-            final_answer = answer_generator.generate(prompt=final_prompt)
+            if not retrieved_context:
+                log.warning("No relevant context found for the query.")
+                return (
+                    "Error: Could not find relevant information to answer the question."
+                )
 
-            if final_answer:
-                print("\n--- Generated Answer ---\n")
-                print(final_answer)
-                print("\n----------------------\n")
-            else:
-                print("\nError: The model failed to generate a final answer.")
-                log.error("Answer generation returned None, indicating an API failure.")
+            # 2. Build the prompt
+            final_prompt = build_rag_prompt(
+                query=query_string,
+                retrieved_chunks=retrieved_context,
+                prompt_template=self.config.retrieval_settings["prompt"],
+            )
 
+            # 3. Generate the answer
+            final_answer = self.answer_generator.generate(prompt=final_prompt)
+            if not final_answer:
+                return "Error: The model failed to generate a final answer."
+
+            log.info("Successfully generated answer.")
+            return final_answer
         except Exception as e:
-            log.error(
-                f"A critical error occurred during the answer generation stage: {e}",
-                exc_info=True,
-            )
-            sys.exit(1)
-    else:
-        log.warning(
-            "Could not retrieve any context for the query. Aborting answer generation."
-        )
+            log.error(f"An error occurred during the query process: {e}", exc_info=True)
+            return "Error: A critical error occurred while processing the request."
 
-    log.info("Application finished.")
+
+def cli_runner():
+    """
+    A simple command-line interface to run the RAG pipeline.
+    """
+    try:
+        pipeline = RAGPipeline()
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--process", action="store_true")
+        parser.add_argument("--build", action="store_true")
+
+        args = parser.parse_args()
+        if args.process:
+            pipeline.process_data_sources()
+        if args.build:
+            pipeline.build_knowledge_base()
+
+        user_query = input("Query: ")
+        answer = pipeline.query(user_query)
+
+        print("\n--- Generated Answer ---\n")
+        print(answer)
+        print("\n----------------------\n")
+
+    except Exception as e:
+        # Fallback for critical init failures
+        print(f"Failed to start the application: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    cli_runner()

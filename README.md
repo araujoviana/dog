@@ -1,3 +1,5 @@
+> 📦 **Archived (November 2026).** A local retrieval-augmented generation (RAG) prototype for asking questions about your own documents and audio (August 2025). Kept as a read-only record of what I was working on at the time; it is no longer maintained.
+
 # 🐕
 
 `dog` is a local Retrieval-Augmented Generation (RAG) pipeline designed to answer questions based on a knowledge base of your own documents and audio files. It uses local models for embedding and reranking, and the Groq API for fast inference.
